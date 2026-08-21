@@ -13,4 +13,8 @@ echo "auth required pam_unix.so" > /tmp/lab_sandbox/etc/pam.d/common-auth
 chmod 600 /tmp/lab_sandbox/etc/ssh/sshd_config
 
 ##Note: By default, inspect.sh targets /tmp/lab_sandbox/etc. You can change TARGET_DIR inside inspect.sh to monitor any path on your system.
+
+## by ./inspect.sh --build you can build your baseline
+## after building the baseline now use ./inspect.sh --check to check for drifts
+
 ```

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 TARGET_DIR="/tmp/lab_sandbox/etc"
 BASELINE_FILE="baseline.txt"
@@ -26,6 +26,8 @@ check_drift(){
 	echo "Scanning Files For Security Drift ..."
 	echo "----------------------------------------"
 
+	FIX_LIST=$(mktemp)
+
 	while IFS='|' read -r SAVED_FILE SAVED_PERMISSION SAVED_OWNER SAVED_HASH; do
 		#deleting whitespaces by using xargs:
 		SAVED_FILE=$(echo "$SAVED_FILE" | xargs)
@@ -47,6 +49,12 @@ check_drift(){
 		#comparing baseline with live values:
 		DRIFT=0
 
+
+		if [ "$SAVED_PERMISSION" != "$LIVE_PERMISSION" ] || [ "$SAVED_OWNER" != "$LIVE_OWNER" ]; then
+			DRIFT=1
+			echo "$SAVED_FILE | $SAVED_PERMISSION | $SAVED_OWNER" >> "$FIX_LIST"
+		fi
+
 		if [ "$SAVED_PERMISSION" != "$LIVE_PERMISSION" ]; then
 			echo "[ALERT] PERMISSION DRIFT: $SAVED_FILE -> EXPECTED: $SAVED_PERMISSION | LIVE -> $LIVE_PERMISSION"
 			DRIFT=1
@@ -66,6 +74,25 @@ check_drift(){
 		fi
 	
 	done < "$BASELINE_FILE"
+
+	#fix it
+	if [ -s "$FIX_LIST" ]; then
+		echo "--------------------------------------------------------------------------------"
+		read -r -p "Drift Detected. Restore Baseline Owner and Permission? (y/n): " REPLY
+		if [[ "$REPLY" =~ ^[Yy]$ ]]; then
+			echo "Fixing Ownership and Permission"
+			while IFS='|' read -r FILE PERMISSION OWNER; do
+				FILE=$(echo "$FILE" | xargs)
+				PERMISSION=$(echo "$PERMISSION" | xargs)
+				OWNER=$(echo "$OWNER" | xargs)
+
+				chmod "$PERMISSION" "$FILE"
+				chown "$OWNER" "$FILE" 2>/dev/null || sudo chown "$OWNER" "$FILE"
+				echo "[FIXED] Restored File Owner and Permission : ($OWNER) - ($PERMISSION)"
+			done < "$FIX_LIST"
+		fi
+	fi
+	rm -f "$FIX_LIST"
 }
 
 #flag selector
